@@ -4,8 +4,8 @@ import sys
 import time
 import logging
 from http import HTTPStatus
-import telegram
 
+import telegram
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -33,6 +33,8 @@ logging.basicConfig(
     encoding='utf-8'
 )
 
+logger = logging.getLogger(__name__)
+
 
 def check_tokens() -> bool:
     """Проверка доступности переменных окружения."""
@@ -47,9 +49,9 @@ def send_message(bot, message):
     """Отправка сообщения о статусе домашки."""
     try:
         bot.send_message(TELEGRAM_CHAT_ID, message)
-        logging.debug('Сообщение отправлено')
+        logger.debug('Сообщение отправлено')
     except Exception as error:
-        logging.error(f'Сообщение не отправлено: {error}')
+        logger.error(f'Сообщение не отправлено: {error}')
 
 
 def get_api_answer(timestamp) -> dict:
@@ -59,9 +61,9 @@ def get_api_answer(timestamp) -> dict:
             url=ENDPOINT, headers=HEADERS,
             params={'from_date': timestamp}
         )
-        logging.info('Запрос выполнен успешно')
-    except Exception as error:
-        logging.error(f'ошибка при выполнении запроса: {error}')
+        logger.info('Запрос выполнен успешно')
+    except requests.RequestException as error:
+        raise ConnectionError(error)
 
     if response.status_code != HTTPStatus.OK:
         raise requests.HTTPError('Неверный статус запроса')
@@ -98,12 +100,13 @@ def parse_status(homework) -> str:
 def main():
     """Основная логика работы бота."""
     if not check_tokens():
-        logging.critical('Переменные окружения не инициализированы')
+        logger.critical('Переменные окружения не инициализированы')
         sys.exit()
 
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
     timestamp = 0  # int(time.time())
     status = ''
+    message = ''
 
     while True:
         try:
@@ -116,11 +119,13 @@ def main():
                     send_message(bot, new_status)
                     status = new_status
                 else:
-                    logging.debug('Статус домашки не обновился')
+                    logger.debug('Статус домашки не обновился')
 
         except Exception as error:
-            message = f'Сбой в работе программы: {error}'
-            logging.error(message)
+            new_message = f'Сбой в работе программы: {error}'
+            if new_message != message:
+                message = new_message
+                logger.error(message)
         finally:
             time.sleep(RETRY_PERIOD)
 
