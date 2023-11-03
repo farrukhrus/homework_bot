@@ -50,8 +50,10 @@ def send_message(bot, message):
     try:
         bot.send_message(TELEGRAM_CHAT_ID, message)
         logger.debug('Сообщение отправлено')
+        return True
     except Exception as error:
         logger.error(f'Сообщение не отправлено: {error}')
+        return False
 
 
 def get_api_answer(timestamp) -> dict:
@@ -124,8 +126,8 @@ def main():
         except Exception as error:
             new_message = f'Сбой в работе программы: {error}'
             if new_message != message:
-                message = new_message
-                send_message(bot, new_status)
+                if send_message(bot, new_status):
+                    message = new_message
                 logger.error(message)
         finally:
             time.sleep(RETRY_PERIOD)
